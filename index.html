@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; background: #228B22; overflow: hidden; touch-action: none; font-family: sans-serif; }
+        canvas { display: block; }
+        #menu, #results { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: white; }
+        #results { display: none; text-align: left; padding: 20px; }
+        #menu h1, #results h1 { color: gold; font-size: 35px; text-shadow: 2px 2px red; }
+        #startBtn, #restartBtn { padding: 12px 40px; font-size: 20px; background: gold; border: none; font-weight: bold; border-radius: 5px; margin-top: 20px; }
+        .btn { position: absolute; width: 65px; height: 65px; border-radius: 50%; border: 2px solid #fff; opacity: 0.8; z-index: 10; }
+        #shootBtn { bottom: 20px; right: 100px; background: #00ff00; }
+        #boostBtn { bottom: 20px; right: 20px; background: #0000ff; }
+        #joy { position: absolute; bottom: 20px; left: 20px; width: 80px; height: 80px; background: rgba(255,255,255,0.1); border: 1px solid #fff; border-radius: 10px; }
+        #ui { position: absolute; top: 10px; left: 10px; color: #fff; text-shadow: 1px 1px #000; pointer-events: none; }
+        #msg { position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%); color: red; font-size: 40px; font-weight: bold; display: none; z-index: 200; }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <h1>STEEL BALL RUN</h1>
+        <button id="startBtn" onclick="startGame()">START RACE</button>
+    </div>
+
+    <div id="results">
+        <h1>STEEL BALL RUN</h1>
+        <div id="leaderboard"></div>
+        <button id="restartBtn" onclick="location.reload()">BACK TO MENU</button>
+    </div>
+
+    <div id="msg">MATCH OVER</div>
+    <div id="ui">
+        HP: <span id="hp">100</span>% | TIME TO DOWN: <span id="timer">10</span>s<br>
+        BALLS: <span id="sh">2</span>/2 | STAMINA: <span id="stamina">100</span>%
+    </div>
+    <div id="shootBtn" class="btn"></div>
+    <div id="boostBtn" class="btn"></div>
+    <div id="joy"></div>
+    <canvas id="g"></canvas>
+
+<script>
+    const canvas = document.getElementById('g');
+    const ctx = canvas.getContext('2d');
+    let pX, targetX, dist = 0, stamina = 100, hp = 100, gameTime = 10;
+    let racers = [], stones = [], balls = [], active = false, finished = false;
+    let speed = 5, isTired = false, ballsInHand = 2;
+    const FINISH_DIST = 2500; // Дистанция до финиша
+
+    function res() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; pX = canvas.width/2; targetX = pX; }
+    window.onresize = res; res();
+
+    function startGame() {
+        document.getElementById('menu').style.display = 'none';
+        active = true; dist = 0; hp = 100; gameTime = 10;
+        
+        // Создаем 7 ботов
+        racers = [];
+        for(let i=0; i<7; i++) {
+            racers.push({ id: i+1, x: (canvas.width/8)*(i+1), y: canvas.height - 200, progress: 0, vX: 0, speedMult: 0.95 + Math.random()*0.1 });
+        }
+        
+        loop();
+        let cd = setInterval(() => {
+            if(gameTime > 0) gameTime--;
+            if(!active || gameTime === 0) clearInterval(cd);
+        }, 1000);
+    }
+
+    document.getElementById('joy').addEventListener('touchmove', e => {
+        let rect = e.target.getBoundingClientRect();
+        targetX = ((e.touches[0].clientX - rect.left) / rect.width) * canvas.width;
+        e.preventDefault();
+    }, {passive: false});
+
+    document.getElementById('shootBtn').addEventListener('touchstart', () => {
+        if(active && ballsInHand > 0) {
+            balls.push({x: pX, y: canvas.height - 100, state: 'forward'});
+            ballsInHand--;
+        }
+    });
+
+    let boosting = false;
+    document.getElementById('boostBtn').addEventListener('touchstart', () => boosting = true);
+    document.getElementById('boostBtn').addEventListener('touchend', () => boosting = false);
+
+    function showResults() {
+        active = false;
+        let all = racers.map(r => ({name: "Бот " + r.id, score: r.progress}));
+        all.push({name: "YOU (Джайро)", score: dist});
+        all.sort((a,b) => b.score - a.score);
+        
+        let html = "";
+        all.forEach((p, i) => {
+            let color = p.name.includes("YOU") ? "gold" : "white";
+            html += `<p style="color:${color}">${i+1}. ${p.name}</p>`;
+        });
+        document.getElementById('leaderboard').innerHTML = html;
+        document.getElementById('results').style.display = "flex";
+    }
+
+    function loop() {
+        if(!active) return;
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+
+        // Управление скоростью
+        let currentBaseSpeed = (gameTime > 0) ? 5 : 12; // Спуск ускоряет всех
+        if(boosting && stamina > 0 && !isTired) {
+            speed = currentBaseSpeed + 7; stamina -= 1;
+            if(stamina <= 0) isTired = true;
+        } else {
+            speed = currentBaseSpeed;
+            if(stamina < 100) stamina += 0.4;
+            if(stamina > 30) isTired = false;
+            if(isTired) speed = 3;
+        }
+
+        dist += speed * 0.1;
+
+        // Невидимые стенки
+        pX += (targetX - pX) * 0.12;
+        if(pX < 25) pX = 25;
+        if(pX > canvas.width - 25) pX = canvas.width - 25;
+
+        // Камни
+        if(dist < FINISH_DIST - 100 && Math.random() < 0.03) {
+            stones.push({x: Math.random()*canvas.width, y: -50});
+        }
+        
+        stones.forEach((st, i) => {
+            st.y += speed;
+            ctx.fillStyle = '#8B4513'; ctx.fillRect(st.x-20, st.y-20, 40, 40);
+            if(Math.hypot(pX - st.x, (canvas.height-100) - st.y) < 40) {
+                hp -= 25; stones.splice(i,1);
+                if(hp <= 0) { active = false; document.getElementById('msg').style.display='block'; setTimeout(()=>location.reload(), 2000); }
+            }
+        });
+
+        // Боты
+        racers.forEach(bot => {
+            bot.progress += speed * bot.speedMult * 0.1;
+            let relativeY = (canvas.height - 100) - (bot.progress - dist) * 10;
+            bot.x += (Math.random() - 0.5) * 2; // Виляние
+            
+            ctx.fillStyle = 'red';
+            ctx.beginPath(); ctx.arc(bot.x, relativeY, 20, 0, 7); ctx.fill();
+            
+            // Если врезался в бота
+            if(Math.hypot(pX - bot.x, (canvas.height-100) - relativeY) < 40) {
+                hp -= 10; // Боты бьют слабее камней
+            }
+        });
+
+        // Шары (Spin)
+        ctx.fillStyle = '#00ff00';
+        balls.forEach((b, bi) => {
+            if(b.state === 'forward') { b.y -= 10; if(b.y < 50) b.state = 'return'; }
+            else { b.x += (pX - b.x) * 0.1; b.y += 12; if(b.y > canvas.height-100) { balls.splice(bi,1); ballsInHand++; } }
+            ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, 7); ctx.fill();
+            stones.forEach((st, si) => { if(Math.hypot(b.x-st.x, b.y-st.y) < 30) { stones.splice(si,1); b.state = 'return'; } });
+        });
+
+        // Финишная черта
+        if(dist > FINISH_DIST - 100) {
+            let lineY = (canvas.height - 100) - (FINISH_DIST - dist) * 10;
+            ctx.fillStyle = 'red'; ctx.fillRect(0, lineY, canvas.width, 10);
+            if(lineY > canvas.height - 100) showResults();
+        }
+
+        // Джайро
+        ctx.fillStyle = isTired ? 'gray' : 'gold';
+        ctx.beginPath(); ctx.arc(pX, canvas.height-100, 25, 0, 7); ctx.fill();
+        ctx.lineWidth=4; ctx.strokeStyle= boosting ? 'cyan' : '#fff'; ctx.stroke();
+
+        // UI
+        document.getElementById('timer').innerText = gameTime;
+        document.getElementById('stamina').innerText = Math.floor(stamina);
+        document.getElementById('sh').innerText = ballsInHand;
+        document.getElementById('hp').innerText = Math.max(0, hp);
+
+        stones = stones.filter(s => s.y < canvas.height + 100);
+        if(active) requestAnimationFrame(loop);
+    }
+</script>
+</body>
+  </html>
