@@ -56,8 +56,8 @@
         
         // Создаем 7 ботов
         racers = [];
-        for(let i=0; i<7; i++) {
-            racers.push({ id: i+1, x: (canvas.width/8)*(i+1), y: canvas.height - 200, progress: 0, vX: 0, speedMult: 0.95 + Math.random()*0.1 });
+        for(let i=0; i<6; i++) {
+            racers.push({ id: i+1, x: (canvas.width/7)*(i+1), y: canvas.height - 200, progress: 0, vX: 0, speedMult: 0.95 + Math.random()*0.1 });
         }
         
         loop();
