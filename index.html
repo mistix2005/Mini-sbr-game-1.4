@@ -137,16 +137,12 @@
         });
 
         // Боты
-        racers.forEach(bot => {
-            bot.progress += speed * bot.speedMult * 0.01
-
+racers.forEach(bot => {
+            bot.progress += speed * bot.speedMult * 0.1;
             let relativeY = (canvas.height - 100) - (bot.progress - dist) * 10;
             bot.x += (Math.random() - 0.5) * 2; // Виляние
-            
-            ctx.fillStyle = 'red';
-            ctx.beginPath(); ctx.arc(bot.x, relativeY, 20, 0, 7); ctx.fill();
-            
-            // Если врезался в бота
+
+        // Если врезался в бота
             if(Math.hypot(pX - bot.x, (canvas.height-100) - relativeY) < 40) {
                 hp -= 10; // Боты бьют слабее камней
             }
