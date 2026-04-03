@@ -138,7 +138,8 @@
 
         // Боты
         racers.forEach(bot => {
-            bot.progress += speed * bot.speedMult *0 ;
+            bot.progress += speed 3
+
             let relativeY = (canvas.height - 100) - (bot.progress - dist) * 10;
             bot.x += (Math.random() - 0.5) * 2; // Виляние
             
